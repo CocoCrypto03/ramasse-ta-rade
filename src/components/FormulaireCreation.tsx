@@ -181,7 +181,7 @@ export default function FormulaireCreation() {
                           heure === h ? "border-bouee bg-bouee text-white" : "border-golfe/40 text-golfe"
                         }`}
                       >
-                        {h} ({bm.hauteur_m.toFixed(1)} m)
+                        {h}
                       </button>
                     );
                   })}

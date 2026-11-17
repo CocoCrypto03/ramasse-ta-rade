@@ -75,7 +75,7 @@ export const COLLECTES_DEMO: Collecte[] = [
     commune: "Brest",
     lat: 48.385355,
     lng: -4.4766421,
-    debut: "2026-12-18T13:00:00.000Z", // 18/12/2026 14h00
+    debut: "2026-12-18T14:30:00.000Z", // 18/12/2026 15h30
     duree_min: 120,
     places: 18,
     organisateur: "Kelig Ar Floc'h",

@@ -8,6 +8,7 @@
 // entre les deux modes.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
@@ -61,7 +62,7 @@ interface Memoire {
   prochainId: number;
 }
 
-const CHEMIN_STOCKAGE_DEMO = path.join(process.cwd(), ".demo-store.json");
+const CHEMIN_STOCKAGE_DEMO = path.join(process.env.VERCEL ? os.tmpdir() : process.cwd(), ".demo-store.json");
 
 function memoireInitiale(): Memoire {
   return {

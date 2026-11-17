@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Génère data/marees.json à partir de l'API Open-Meteo Marine.
+ * Génère data/marees.json (US-12) : pleines et basses mers de la rade de Brest.
  *
- * Interroge UNE SEULE FOIS, à la génération, la hauteur d'eau horaire
- * (sea_level_height_msl) au point le plus proche de la rade de Brest, puis
- * détecte les extrema locaux (pleines mers / basses mers) par simple
- * comparaison avec les heures voisines. Le fichier produit est ensuite lu
- * par l'application SANS AUCUN appel réseau à l'exécution (US-12).
+ * L'API Open-Meteo Marine ne prévoit que ~10 jours, mais donne ~3 mois
+ * d'historique horaire. On ajuste donc sur cet historique un modèle
+ * harmonique classique (somme de sinusoïdes aux fréquences astronomiques
+ * M2, S2, N2, K1, O1…, moindres carrés), on le valide sur les derniers
+ * jours qu'il n'a pas vus, puis on le prolonge jusqu'à fin janvier.
+ * L'application lit ensuite ce fichier SANS appel réseau.
  *
  * Usage : node scripts/marees.mjs
  */
@@ -17,148 +18,156 @@ import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Point de référence : rade de Brest (large de Sainte-Anne-du-Portzic).
 const LATITUDE = 48.38;
 const LONGITUDE = -4.49;
+const DEBUT = "2026-10-01";
+const FIN = "2027-01-31";
+const JOURS_VALIDATION = 20;
 
-// Fenêtre souhaitée par le cahier des charges. L'API Open-Meteo Marine ne
-// fournit des prévisions que sur un horizon limité (~2 semaines après la
-// date du jour) ; on demande la fenêtre complète et on note ce qui a
-// effectivement été renvoyé.
-const START_DATE_SOUHAITE = "2026-10-01";
-const END_DATE_SOUHAITEE = "2027-01-31";
+// Vitesses angulaires (degrés / heure). Composantes séparables avec ~100 jours
+// de données (critère de Rayleigh) ; K2 et P1, trop proches de S2 et K1, sont
+// absorbées par celles-ci.
+const COMPOSANTES = {
+  M2: 28.9841042, S2: 30.0, N2: 28.4397295, "2N2": 27.8953548, L2: 29.5284789,
+  K1: 15.0410686, O1: 13.9430356, Q1: 13.3986609,
+  M3: 43.4761563, M4: 57.9682084, MS4: 58.9841042, MN4: 57.4238337,
+  M6: 86.9523127, "2MS6": 87.9682084, M8: 115.9364166,
+};
+const VITESSES = Object.values(COMPOSANTES).map((v) => (v * Math.PI) / 180); // rad/h
 
-async function recupererHauteurs(startDate, endDate) {
+async function recupererHauteurs() {
   const url =
-    `https://marine-api.open-meteo.com/v1/marine` +
+    "https://marine-api.open-meteo.com/v1/marine" +
     `?latitude=${LATITUDE}&longitude=${LONGITUDE}` +
-    `&hourly=sea_level_height_msl` +
-    `&timezone=Europe%2FParis` +
-    `&start_date=${startDate}&end_date=${endDate}`;
-
+    "&hourly=sea_level_height_msl&timezone=GMT&past_days=92&forecast_days=16";
   const reponse = await fetch(url);
-  const json = await reponse.json();
-
-  if (json.error) {
-    // La plage demandée dépasse l'horizon de prévision : on réduit et on
-    // réessaie avec la plage maximale autorisée indiquée dans le message.
-    const match = /to (\d{4}-\d{2}-\d{2})/.exec(json.reason ?? "");
-    if (match) {
-      const dateMax = match[1];
-      if (dateMax !== endDate) {
-        console.log(
-          `Plage demandée réduite : l'API n'autorise que jusqu'au ${dateMax}.`,
-        );
-        return recupererHauteurs(startDate, dateMax);
-      }
-    }
-    throw new Error("Échec de l'appel Open-Meteo Marine : " + json.reason);
-  }
-
-  return json;
+  if (!reponse.ok) throw new Error(`Open-Meteo a répondu ${reponse.status}`);
+  const { hourly } = await reponse.json();
+  return hourly.time
+    .map((t, i) => ({ t: Date.parse(t + "Z"), h: hourly.sea_level_height_msl[i] }))
+    .filter((p) => p.h !== null);
 }
 
-// Détecte les extrema locaux (pleine mer = maximum, basse mer = minimum)
-// dans une série horaire en comparant chaque point à ses voisins directs.
-function detecterExtrema(temps, hauteurs) {
-  const evenements = [];
+const T0 = Date.parse("2026-01-01T00:00Z");
+const heures = (ms) => (ms - T0) / 3_600_000;
 
-  for (let i = 1; i < hauteurs.length - 1; i++) {
-    const avant = hauteurs[i - 1];
-    const courant = hauteurs[i];
-    const apres = hauteurs[i + 1];
+function base(ms) {
+  const t = heures(ms);
+  const ligne = [1];
+  for (const w of VITESSES) ligne.push(Math.cos(w * t), Math.sin(w * t));
+  return ligne;
+}
 
-    if (courant === null || avant === null || apres === null) continue;
-
-    const estMaximum = courant >= avant && courant >= apres && courant > avant;
-    const estMinimum = courant <= avant && courant <= apres && courant < avant;
-
-    if (estMaximum || estMinimum) {
-      // Évite de compter deux fois un plateau (deux heures égales de suite)
-      const dernier = evenements[evenements.length - 1];
-      if (dernier && dernier.type === (estMaximum ? "pleine_mer" : "basse_mer")) {
-        // Garde l'extremum le plus marqué du plateau
-        if (
-          (estMaximum && courant > dernier.hauteur_m) ||
-          (estMinimum && courant < dernier.hauteur_m)
-        ) {
-          evenements[evenements.length - 1] = {
-            heure: temps[i],
-            type: estMaximum ? "pleine_mer" : "basse_mer",
-            hauteur_m: courant,
-          };
-        }
-        continue;
-      }
-
-      evenements.push({
-        heure: temps[i],
-        type: estMaximum ? "pleine_mer" : "basse_mer",
-        hauteur_m: courant,
-      });
+// Moindres carrés par équations normales + élimination de Gauss.
+function ajuster(points) {
+  const n = 1 + 2 * VITESSES.length;
+  const A = Array.from({ length: n }, () => new Array(n + 1).fill(0));
+  for (const { t, h } of points) {
+    const x = base(t);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) A[i][j] += x[i] * x[j];
+      A[i][n] += x[i] * h;
     }
   }
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    [A[c], A[p]] = [A[p], A[c]];
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue;
+      const f = A[r][c] / A[c][c];
+      for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k];
+    }
+  }
+  return A.map((ligne, i) => ligne[n] / ligne[i]);
+}
 
-  return evenements;
+const hauteur = (coef, ms) => base(ms).reduce((s, x, i) => s + x * coef[i], 0);
+
+// Extrema à la minute près, entre deux instants (ms).
+function extrema(coef, debutMs, finMs) {
+  const pas = 60_000;
+  const sortie = [];
+  let precedent = hauteur(coef, debutMs);
+  let courant = hauteur(coef, debutMs + pas);
+  for (let ms = debutMs + pas; ms < finMs; ms += pas) {
+    const suivant = hauteur(coef, ms + pas);
+    if (courant > precedent && courant >= suivant) sortie.push({ ms, type: "pleine_mer", h: courant });
+    if (courant < precedent && courant <= suivant) sortie.push({ ms, type: "basse_mer", h: courant });
+    precedent = courant;
+    courant = suivant;
+  }
+  return sortie;
+}
+
+const formatParis = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+const heureParis = (ms) => formatParis.format(new Date(ms)).replace(" ", "T");
+
+// Extrema « observés » : sommet de la parabole passant par 3 points horaires.
+function extremaObserves(points) {
+  const sortie = [];
+  for (let i = 1; i < points.length - 1; i++) {
+    const [a, b, c] = [points[i - 1].h, points[i].h, points[i + 1].h];
+    if ((b > a && b >= c) || (b < a && b <= c)) {
+      const d = (a - c) / (2 * (a - 2 * b + c));
+      sortie.push({ ms: points[i].t + d * 3_600_000, type: b > a ? "pleine_mer" : "basse_mer" });
+    }
+  }
+  return sortie;
 }
 
 async function main() {
-  console.log(
-    `Appel Open-Meteo Marine (${START_DATE_SOUHAITE} → ${END_DATE_SOUHAITEE}) pour le point ${LATITUDE},${LONGITUDE}...`,
-  );
+  const points = await recupererHauteurs();
+  const coupure = points.at(-1).t - JOURS_VALIDATION * 86_400_000;
 
-  const json = await recupererHauteurs(START_DATE_SOUHAITE, END_DATE_SOUHAITEE);
+  // Validation : ajustement sans les 20 derniers jours, comparaison sur ceux-ci.
+  const coefTest = ajuster(points.filter((p) => p.t < coupure));
+  const test = points.filter((p) => p.t >= coupure);
+  const rmse = Math.sqrt(test.reduce((s, p) => s + (hauteur(coefTest, p.t) - p.h) ** 2, 0) / test.length);
+  const predits = extrema(coefTest, coupure, points.at(-1).t).filter((e) => e.type === "basse_mer");
+  const ecarts = extremaObserves(test)
+    .filter((e) => e.type === "basse_mer")
+    .map((o) => Math.min(...predits.map((p) => Math.abs(p.ms - o.ms))) / 60_000)
+    .sort((a, b) => a - b);
+  const ecartMedian = Math.round(ecarts[Math.floor(ecarts.length / 2)]);
+  const ecartMax = Math.round(ecarts.at(-1));
 
-  const temps = json.hourly.time;
-  const hauteurs = json.hourly.sea_level_height_msl;
-  const dateDebutReelle = temps[0];
-  // L'API renvoie des dates jusqu'à la fin de la plage autorisée, mais les
-  // valeurs au-delà de l'horizon de prévision réel (quelques jours) sont
-  // `null`. On ne garde comme "couverture réelle" que la dernière heure où
-  // une valeur exploitable existe.
-  let dernierIndexValide = hauteurs.length - 1;
-  while (dernierIndexValide >= 0 && hauteurs[dernierIndexValide] === null) {
-    dernierIndexValide--;
-  }
-  const dateFinReelle = temps[dernierIndexValide];
-
-  const evenements = detecterExtrema(temps, hauteurs);
-  const basses = evenements.filter((e) => e.type === "basse_mer").length;
-  const pleines = evenements.filter((e) => e.type === "pleine_mer").length;
-
-  const couvertureComplete =
-    dateDebutReelle.slice(0, 10) === START_DATE_SOUHAITE &&
-    dateFinReelle.slice(0, 10) >= END_DATE_SOUHAITEE.slice(0, 8);
+  const coef = ajuster(points);
+  const evenements = extrema(coef, Date.parse(DEBUT + "T00:00Z") - 7_200_000, Date.parse(FIN + "T23:59Z")).map(
+    (e) => ({ heure: heureParis(e.ms), type: e.type, hauteur_m: Math.round(e.h * 100) / 100 }),
+  ).filter((e) => e.heure >= DEBUT && e.heure <= FIN + "T23:59");
 
   const sortie = {
-    source: "Open-Meteo Marine API (marine-api.open-meteo.com), modèle météo-marin basé sur les données de marée astronomique.",
-    licence: "CC BY 4.0 — https://open-meteo.com/en/license",
+    source:
+      "Prédiction harmonique ajustée sur les hauteurs d'eau horaires Open-Meteo Marine (marine-api.open-meteo.com) en rade de Brest.",
+    licence: "Données d'origine Open-Meteo sous CC BY 4.0 — https://open-meteo.com/en/license",
     avertissement:
-      "Données approximatives à but pédagogique (projet étudiant). Avant toute collecte, vérifiez les horaires officiels sur maree.shom.fr.",
+      "Horaires approximatifs (projet étudiant). Avant toute collecte, vérifiez les horaires officiels sur maree.shom.fr.",
     point_reference: { latitude: LATITUDE, longitude: LONGITUDE, lieu: "Rade de Brest" },
     fuseau: "Europe/Paris",
     genere_le: new Date().toISOString(),
-    plage_demandee: { debut: START_DATE_SOUHAITE, fin: END_DATE_SOUHAITEE },
-    plage_obtenue: { debut: dateDebutReelle, fin: dateFinReelle },
-    couverture_complete: couvertureComplete,
-    note_couverture: couvertureComplete
-      ? "La plage obtenue couvre entièrement la plage demandée."
-      : `L'API Open-Meteo Marine ne fournit des hauteurs d'eau exploitables (prévision réelle, pas null) que du ${dateDebutReelle} au ${dateFinReelle}, bien que la plage demandée soit ${START_DATE_SOUHAITE} → ${END_DATE_SOUHAITEE}. Au-delà de ${dateFinReelle}, l'application affiche "donnée de marée indisponible pour cette date, vérifiez maree.shom.fr".`,
-    nombre_basses_mers: basses,
-    nombre_pleines_mers: pleines,
+    methode: {
+      donnees_ajustement: { debut: heureParis(points[0].t), fin: heureParis(points.at(-1).t), points: points.length },
+      composantes: Object.keys(COMPOSANTES),
+      validation: {
+        jours_non_vus: JOURS_VALIDATION,
+        rmse_hauteur_m: Math.round(rmse * 100) / 100,
+        ecart_basse_mer_median_min: ecartMedian,
+        ecart_basse_mer_max_min: ecartMax,
+      },
+    },
+    plage_obtenue: { debut: DEBUT + "T00:00", fin: FIN + "T23:59" },
+    nombre_basses_mers: evenements.filter((e) => e.type === "basse_mer").length,
+    nombre_pleines_mers: evenements.filter((e) => e.type === "pleine_mer").length,
     evenements,
   };
 
-  const chemin = path.join(__dirname, "..", "data", "marees.json");
-  writeFileSync(chemin, JSON.stringify(sortie, null, 2) + "\n", "utf-8");
-
-  console.log(
-    `OK : ${evenements.length} extrema détectés (${basses} basses mers, ${pleines} pleines mers).`,
-  );
-  console.log(`Écrit dans ${chemin}`);
-  if (!couvertureComplete) {
-    console.log("Attention : " + sortie.note_couverture);
-  }
+  writeFileSync(path.join(__dirname, "..", "data", "marees.json"), JSON.stringify(sortie, null, 2) + "\n");
+  console.log(`Ajustement sur ${points.length} h. Validation ${JOURS_VALIDATION} j : RMSE ${sortie.methode.validation.rmse_hauteur_m} m, écart basse mer médian ${ecartMedian} min, max ${ecartMax} min.`);
+  console.log(`${evenements.length} extrema écrits (${DEBUT} → ${FIN}).`);
 }
 
 main().catch((err) => {
