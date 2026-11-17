@@ -1,63 +1,83 @@
-// Illustration SVG maison de la rade (littoral stylisé, vagues, goéland en
-// vol) pour le héros de l'accueil. Animation de vague très discrète,
-// respectueuse de prefers-reduced-motion (règle globale dans globals.css qui
-// coupe toutes les animations de la page quand la préférence est activée).
+// Illustration SVG maison de la rade à marée basse : ciel d'aube, collines de
+// Plougastel, mer, estran découvert avec la laisse de mer, un sac de collecte
+// et deux goélands. Vagues animées très lentement ; la règle globale
+// prefers-reduced-motion de globals.css coupe l'animation.
+
+const VAGUE = "M-100 0" + " q12.5 -6 25 0 t25 0".repeat(14);
 
 export default function IllustrationRade({ className = "" }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 400 260"
+      viewBox="0 0 400 300"
       className={className}
       role="img"
-      aria-label="Illustration d'une côte rocheuse au-dessus de la mer, avec un goéland en vol"
+      aria-label="La rade de Brest à marée basse : collines, mer calme, plage découverte avec un sac de collecte et deux goélands"
     >
+      <defs>
+        <clipPath id="hublot">
+          <rect width="400" height="300" rx="28" />
+        </clipPath>
+        <linearGradient id="ciel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffd9b0" />
+          <stop offset="1" stopColor="#f4edd9" />
+        </linearGradient>
+        <linearGradient id="mer" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#2fa3bf" />
+          <stop offset="1" stopColor="#1c7d96" />
+        </linearGradient>
+      </defs>
       <style>
         {`
-          .vague-anim-1 { animation: derive-vague 9s linear infinite; }
-          .vague-anim-2 { animation: derive-vague 13s linear infinite reverse; }
-          @keyframes derive-vague {
-            from { transform: translateX(0); }
-            to { transform: translateX(-80px); }
-          }
+          .derive-lente { animation: derive 14s linear infinite; }
+          .derive-rapide { animation: derive 9s linear infinite reverse; }
+          @keyframes derive { to { transform: translateX(-50px); } }
         `}
       </style>
 
-      {/* ciel */}
-      <rect width="400" height="260" fill="#eaf3ea" opacity={0} />
+      <g clipPath="url(#hublot)">
+        <rect width="400" height="300" fill="url(#ciel)" />
+        <circle cx="292" cy="112" r="38" fill="#ff8a50" opacity="0.85" />
 
-      {/* mer, deux bandes de vagues qui dérivent doucement */}
-      <g className="vague-anim-1">
-        <path
-          d="M-80 170c20-8 40-8 60 0s40 8 60 0 40-8 60 0 40 8 60 0 40-8 60 0 40 8 60 0 40-8 60 0 40 8 60 0v90H-80z"
-          fill="#2fa3bf"
-          opacity={0.35}
-        />
-      </g>
-      <g className="vague-anim-2">
-        <path
-          d="M-80 190c20-6 40-6 60 0s40 6 60 0 40-6 60 0 40 6 60 0 40-6 60 0 40 6 60 0 40-6 60 0v70H-80z"
-          fill="#1c7d96"
-          opacity={0.9}
-        />
-      </g>
+        {/* collines lointaines puis presqu'île de Plougastel */}
+        <path d="M0 158C60 126 112 134 164 146 226 160 262 124 324 130 362 134 386 144 400 142V200H0z" fill="#2fa3bf" opacity="0.35" />
+        <path d="M0 178C46 156 94 158 136 170 176 182 212 166 256 172 300 178 340 170 400 176V200H0z" fill="#134f63" />
 
-      {/* côte rocheuse stylisée, à gauche et à droite */}
-      <path d="M0 150c22-28 46-46 70-40 16 4 20 24 42 20 26-5 30-34 58-30v30H0z" fill="#0b3a4a" />
-      <path d="M400 160c-24-22-50-34-76-26-16 5-18 24-40 22-22-2-26-22-50-14v48h166z" fill="#134f63" />
+        {/* mer */}
+        <rect y="186" width="400" height="80" fill="url(#mer)" />
+        <g className="derive-lente" transform="translate(0 204)">
+          <path d={VAGUE} fill="none" stroke="#f4edd9" strokeWidth="2" opacity="0.45" />
+        </g>
+        <g className="derive-rapide" transform="translate(0 222)">
+          <path d={VAGUE} fill="none" stroke="#f4edd9" strokeWidth="2" opacity="0.3" />
+        </g>
 
-      {/* goéland en vol */}
-      <g transform="translate(200 70)">
-        <path
-          d="M-34 6c12-14 26-14 34 2 8-16 22-16 34-2-14 0-22 6-28 14-3 4-9 4-12 0-6-8-14-14-28-14z"
-          fill="#11232b"
-        />
-      </g>
-      <g transform="translate(250 40) scale(0.6)">
-        <path
-          d="M-34 6c12-14 26-14 34 2 8-16 22-16 34-2-14 0-22 6-28 14-3 4-9 4-12 0-6-8-14-14-28-14z"
-          fill="#11232b"
-          opacity={0.7}
-        />
+        {/* estran découvert, puis plage */}
+        <path d="M0 246C90 230 170 234 250 242 310 248 360 244 400 236V300H0z" fill="#d9c79a" />
+        <path d="M0 262C80 248 170 252 250 260 310 266 360 262 400 256V300H0z" fill="#e7dcbb" />
+
+        {/* laisse de mer : algues et petits déchets */}
+        <g fill="#2f6b45">
+          <ellipse cx="40" cy="252" rx="10" ry="2.5" />
+          <ellipse cx="160" cy="247" rx="12" ry="2.5" />
+          <ellipse cx="300" cy="251" rx="9" ry="2.5" />
+          <ellipse cx="365" cy="246" rx="8" ry="2" />
+        </g>
+        <g fill="#9fb5bd">
+          <rect x="196" y="244" width="12" height="4" rx="2" transform="rotate(-12 202 246)" />
+          <rect x="330" y="249" width="9" height="3.5" rx="1.75" transform="rotate(18 334 250)" />
+          <circle cx="62" cy="249" r="2.5" />
+        </g>
+
+        {/* sac de collecte */}
+        <g transform="translate(112 252)">
+          <path d="M-14 0h28l4 26c0 5-4 8-9 8h-18c-5 0-9-3-9-8z" fill="#ff5a1f" />
+          <path d="M-14 0c3-8 9-9 14-4 5-5 11-4 14 4" fill="none" stroke="#e2470f" strokeWidth="3" strokeLinecap="round" />
+          <path d="M-6 12h12" stroke="#f4edd9" strokeWidth="2.5" strokeLinecap="round" />
+        </g>
+
+        {/* goélands */}
+        <path d="M150 74c9-10 19-10 25 2 6-12 16-12 25-2-10 0-16 4-20 10-2 3-8 3-10 0-4-6-10-10-20-10z" fill="#11232b" />
+        <path d="M222 50c6-6 12-6 16 1 4-7 10-7 16-1-6 0-10 3-13 6-1 2-5 2-6 0-3-3-7-6-13-6z" fill="#11232b" opacity="0.7" />
       </g>
     </svg>
   );
