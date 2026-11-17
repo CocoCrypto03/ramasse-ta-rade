@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { DUREE_CONSERVATION_JOURS } from "@/lib/rgpd";
 
 export default function FormulaireInscription({
   collecteId,
@@ -16,9 +18,12 @@ export default function FormulaireInscription({
 }) {
   const [prenom, setPrenom] = useState("");
   const [email, setEmail] = useState("");
+  const [consentement, setConsentement] = useState(false);
   const router = useRouter();
   const [etat, setEtat] = useState<"repos" | "envoi" | "succes" | "erreur">("repos");
   const [messageErreur, setMessageErreur] = useState("");
+  const [lienDesinscription, setLienDesinscription] = useState("");
+  const [lienCopie, setLienCopie] = useState(false);
 
   const complet = placesRestantes <= 0;
 
@@ -31,7 +36,7 @@ export default function FormulaireInscription({
       const reponse = await fetch(`/api/collectes/${collecteId}/inscriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom, email }),
+        body: JSON.stringify({ prenom, email, consentement }),
       });
       const data = await reponse.json();
 
@@ -41,6 +46,9 @@ export default function FormulaireInscription({
         return;
       }
 
+      // Jeton dans le fragment (#) : il n'est jamais envoyé au serveur en
+      // ouvrant le lien, donc absent des journaux et de l'en-tête Referer.
+      setLienDesinscription(`${window.location.origin}/desinscription#${data.jetonDesinscription}`);
       setEtat("succes");
       router.refresh();
       onInscrit?.(prenom);
@@ -72,6 +80,38 @@ export default function FormulaireInscription({
         >
           Ajouter à mon agenda
         </a>
+        {lienDesinscription && (
+          <div className="mt-3 border-t border-algue/30 pt-3">
+            <p className="text-sm font-semibold text-encre">Votre lien de désinscription</p>
+            <p className="mt-1 text-xs text-encre/70">
+              Gardez-le : il permet de supprimer votre inscription et votre e-mail à tout moment. Il ne
+              sera plus affiché.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input
+                readOnly
+                value={lienDesinscription}
+                onFocus={(e) => e.target.select()}
+                aria-label="Lien de désinscription"
+                className="h-11 min-w-0 flex-1 rounded-lg border border-encre/20 bg-white px-3 text-xs"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(lienDesinscription);
+                    setLienCopie(true);
+                  } catch {
+                    // Presse-papiers indisponible : le champ reste sélectionnable à la main.
+                  }
+                }}
+                className="h-11 shrink-0 rounded-lg bg-rade px-4 text-sm font-semibold text-sable"
+              >
+                {lienCopie ? "Copié" : "Copier"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -114,6 +154,20 @@ export default function FormulaireInscription({
         />
       </div>
 
+      <label className="flex items-start gap-3 text-sm text-encre/80">
+        <input
+          type="checkbox"
+          required
+          checked={consentement}
+          onChange={(e) => setConsentement(e.target.checked)}
+          className="mt-0.5 h-5 w-5 shrink-0 accent-golfe"
+        />
+        <span>
+          J&apos;accepte que mon prénom apparaisse dans la liste publique des inscrit·es et que mon e-mail soit
+          transmis aux ambassadeur·rices pour me contacter au sujet de cette collecte.
+        </span>
+      </label>
+
       {etat === "erreur" && (
         <p className="text-sm font-semibold text-bouee-dark" role="alert">
           {messageErreur}
@@ -128,7 +182,11 @@ export default function FormulaireInscription({
         {etat === "envoi" ? "Inscription…" : "Je m'inscris"}
       </button>
       <p className="text-xs text-encre/60">
-        Votre e-mail n&apos;est utilisé que pour cette collecte et n&apos;est jamais affiché publiquement.
+        Votre e-mail n&apos;est jamais affiché publiquement. Vos données sont supprimées{" "}
+        {DUREE_CONSERVATION_JOURS} jours après la collecte, et vous pouvez vous désinscrire à tout moment.{" "}
+        <Link href="/confidentialite" className="font-semibold text-golfe underline">
+          En savoir plus
+        </Link>
       </p>
     </form>
   );

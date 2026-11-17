@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.vercel
+.env*
+!.env.example
+.demo-store.json
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+docker-compose.yml

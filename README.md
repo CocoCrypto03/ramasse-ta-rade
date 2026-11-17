@@ -18,6 +18,27 @@ collectes réelles sur le littoral de la rade) : rien à installer pour
 tester. Cet état est persisté dans un fichier `.demo-store.json` à la
 racine (ignoré par git) ; supprimez-le pour repartir des données de départ.
 
+## Tester avec Docker
+
+Seul Docker est nécessaire, pas d'installation de Node :
+
+```bash
+docker compose up --build    # http://localhost:3000
+docker compose down -v       # arrêter et repartir des données de démo
+```
+
+La construction de l'image lance `npm run lint` puis `npm run build` : si
+elle réussit, le code compile. Le conteneur tourne en mode mémoire de
+démonstration avec le code ambassadeur `GOELAND29` et le secret de purge
+`secret-local` (valeurs de test uniquement, voir `docker-compose.yml`). Les
+données de démo sont gardées dans un volume Docker entre deux redémarrages.
+
+Déclencher la purge RGPD à la main :
+
+```bash
+curl -H "Authorization: Bearer secret-local" http://localhost:3000/api/rgpd/purge
+```
+
 ## Variables d'environnement
 
 Copier `.env.example` en `.env.local` :
@@ -47,6 +68,25 @@ service role) : le client du navigateur n'a jamais d'accès direct à la base.
      mémoire).
 3. Renseigner `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` dans
    `.env.local` (Project Settings → API).
+
+Projet Supabase créé avant le 17/11/2026 : exécuter en plus
+`supabase/migrations/20261117_rgpd.sql` (colonnes de consentement et de
+désinscription).
+
+## RGPD
+
+- **Information et consentement** : le formulaire d'inscription renvoie vers
+  `/confidentialite` et exige une case cochée ; le serveur refuse toute
+  inscription sans `consentement: true` et horodate le consentement.
+- **Désinscription** : après l'inscription, un lien personnel
+  `/desinscription#<jeton>` est affiché une seule fois. Seule l'empreinte
+  SHA-256 du jeton est stockée ; le jeton, placé dans le fragment `#`, n'est
+  jamais envoyé au serveur dans l'URL.
+- **Durée de conservation** : la tâche planifiée Vercel (`vercel.json`)
+  appelle chaque nuit `/api/rgpd/purge`, qui supprime les inscriptions des
+  collectes passées depuis plus de 30 jours (`src/lib/rgpd.ts`). Renseigner
+  `CRON_SECRET` sur Vercel, sinon la route refuse tout appel.
+- `CONTACT_RGPD` : adresse affichée sur `/confidentialite`.
 
 ## Horaires de marée (US-12)
 
