@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-rade: #0b3a4a;
+  --color-rade-light: #134f63;
+  --color-golfe: #1c7d96;
+  --color-golfe-light: #2fa3bf;
+  --color-sable: #f4edd9;
+  --color-sable-dark: #e7dcbb;
+  --color-bouee: #ff5a1f;
+  --color-bouee-dark: #e2470f;
+  --color-algue: #2f6b45;
+  --color-algue-light: #eaf3ea;
+  --color-encre: #11232b;
+  --color-encre-70: rgb(17 35 43 / 70%);
+
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: var(--font-public-sans), "Public Sans", system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-sable);
+  color: var(--color-encre);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+}
+
+/* Zone tactile généreuse par défaut pour les éléments interactifs. */
+button, a, input, select, textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-bouee);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.leaflet-container {
+  font-family: var(--font-body);
+}
+
+.champ {
+  width: 100%;
+  height: 3rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(17 35 43 / 20%);
+  background: white;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+}
