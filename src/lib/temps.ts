@@ -106,4 +106,31 @@ export function formatDateCourteFr(iso: string): string {
   return `${String(p.jour).padStart(2, "0")}/${String(p.mois).padStart(2, "0")}/${p.annee}`;
 }
 
+/** Jour + mois abrégé en majuscules, pour une pastille compacte ("21" / "NOV"). */
+export function jourMoisAbregeFr(iso: string): { jour: string; moisAbrege: string } {
+  const p = partsEnZone(new Date(iso), FUSEAU);
+  return { jour: String(p.jour).padStart(2, "0"), moisAbrege: MOIS[p.mois - 1].slice(0, 3).toUpperCase() };
+}
+
+export interface Ephemeride {
+  jourSemaine: string;
+  jour: number;
+  mois: string;
+  annee: number;
+}
+
+/** Date découpée pour un bloc « éphéméride » (jour en gros, reste en petit). */
+export function ephemerideFr(iso: string): Ephemeride {
+  const d = new Date(iso);
+  const jourSemaine = new Intl.DateTimeFormat("fr-FR", { timeZone: FUSEAU, weekday: "long" }).format(d);
+  const p = partsEnZone(d, FUSEAU);
+  return { jourSemaine, jour: p.jour, mois: MOIS[p.mois - 1], annee: p.annee };
+}
+
+/** Heure décimale (0–24) en heure de Paris, pour positionner un point sur un axe horaire. */
+export function heureDecimaleParis(iso: string): number {
+  const p = partsEnZone(new Date(iso), FUSEAU);
+  return p.heure + p.minute / 60;
+}
+
 export { JOURS };

@@ -8,7 +8,7 @@ insert into collectes (id, titre, lieu, commune, lat, lng, debut, duree_min, pla
   ('d05dcc71-e1f5-4572-b9fb-e2265fc05b9b', 'Ramassage au Dellec', 'Le Dellec', 'Plouzané', 48.3529708, -4.5718008, '2026-11-23T08:00:00.000Z', 120, 25, 'Kelig Ar Floc''h', 'Gants et bottes, sacs fournis', 'a_venir', '2026-09-17T10:00:00.000Z'),
   ('cdefe23e-613e-49fe-83ad-4506d9c9e799', 'Collecte à l''Auberlac''h', 'L''Auberlac''h', 'Plougastel-Daoulas', 48.3382523, -4.4144926, '2026-11-24T09:00:00.000Z', 90, 12, 'Yann Quéméner', 'Gants, sac personnel si possible', 'a_venir', '2026-09-18T10:00:00.000Z'),
   ('6d7d7691-707e-4acb-a82b-332fd4845754', 'Nettoyage du port de commerce', 'Port de commerce (Le Polder)', 'Brest', 48.385355, -4.4766421, '2026-12-18T14:30:00.000Z', 120, 18, 'Kelig Ar Floc''h', 'Gants, chasuble si vous en avez', 'a_venir', '2026-09-19T10:00:00.000Z'),
-  ('80ce484f-1ba5-4945-825d-670aa6e8955d', 'Collecte du Passage', 'Le Passage', 'Le Relecq-Kerhuon', 48.3960965, -4.3816047, '2026-10-10T07:00:00.000Z', 120, 20, 'Kelig Ar Floc''h', 'Gants et sacs fournis', 'terminee', '2026-09-01T10:00:00.000Z'),
+  ('80ce484f-1ba5-4945-825d-670aa6e8955d', 'Collecte du Passage', 'Le Passage', 'Le Relecq-Kerhuon', 48.3960965, -4.3816047, '2026-10-10T07:30:00.000Z', 120, 20, 'Kelig Ar Floc''h', 'Gants et sacs fournis', 'terminee', '2026-09-01T10:00:00.000Z'),
   ('0aa09105-7fdf-4f42-b9d1-c777bfaddac6', 'Grand nettoyage de la plage du Minou', 'Plage du Minou', 'Plouzané', 48.3394703, -4.6157574, '2026-11-07T09:00:00.000Z', 150, 20, 'Enora Le Bris', 'Gants, sacs, bottes conseillées', 'terminee', '2026-09-10T10:00:00.000Z');
 
 insert into inscriptions (id, collecte_id, prenom, email, created_at) values

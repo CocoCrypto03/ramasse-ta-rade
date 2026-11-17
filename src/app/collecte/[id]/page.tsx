@@ -7,11 +7,13 @@ import {
   obtenirCollecte,
 } from "@/lib/db";
 import { infoMareeCollecte, sourceMarees } from "@/lib/marees";
-import { formatDateLongueFr, formatHeureFr } from "@/lib/temps";
+import { dateParisISO, ephemerideFr, formatDateLongueFr, formatHeureFr } from "@/lib/temps";
 import RafraichirApresInscription from "@/components/RafraichirApresInscription";
 import ListeInscrits from "@/components/ListeInscrits";
 import MareeInfo from "@/components/MareeInfo";
 import BoutonWhatsapp from "@/components/BoutonWhatsapp";
+import CarteCollectes from "@/components/CarteCollectes";
+import CourbeMaree from "@/components/CourbeMaree";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +36,12 @@ export default async function DetailCollecte({ params }: { params: Promise<{ id:
   ]);
 
   const placesRestantes = Math.max(0, collecte.places - nbInscrits);
+  const pctPlaces = collecte.places > 0 ? Math.min(100, Math.round((nbInscrits / collecte.places) * 100)) : 0;
   const info = infoMareeCollecte(collecte.debut);
   const source = sourceMarees();
   const terminee = collecte.statut === "terminee";
+  const eph = ephemerideFr(collecte.debut);
+  const lienItineraire = `https://www.openstreetmap.org/directions?to=${collecte.lat}%2C${collecte.lng}`;
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8">
@@ -44,26 +49,50 @@ export default async function DetailCollecte({ params }: { params: Promise<{ id:
         ← Retour à la carte
       </Link>
 
-      <div className="mt-3 flex items-start justify-between gap-3">
-        <h1 className="font-display text-3xl font-extrabold text-rade">{collecte.titre}</h1>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
-            terminee ? "bg-encre/10 text-encre/70" : "bg-bouee/15 text-bouee-dark"
+      <div className="mt-3 flex items-start gap-4">
+        <div
+          className={`flex shrink-0 flex-col items-center justify-center rounded-xl px-3.5 py-2 ${
+            terminee ? "bg-encre/10 text-encre/70" : "bg-rade text-sable"
           }`}
         >
-          {terminee ? "Terminée" : "À venir"}
-        </span>
+          <span className="font-display text-2xl font-extrabold leading-none">{eph.jour}</span>
+          <span className="mt-0.5 text-[10px] font-bold uppercase tracking-wide">{eph.mois.slice(0, 3)}</span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="font-display text-2xl font-extrabold text-rade sm:text-3xl">{collecte.titre}</h1>
+            <span
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+                terminee ? "bg-encre/10 text-encre/70" : "bg-bouee/15 text-bouee-dark"
+              }`}
+            >
+              {terminee ? "Terminée" : "À venir"}
+            </span>
+          </div>
+          <p className="mt-1 text-sm uppercase tracking-wide text-encre/55">
+            {eph.jourSemaine} {eph.jour} {eph.mois} {eph.annee}
+          </p>
+        </div>
       </div>
 
-      <p className="mt-1 text-lg text-encre/80">
+      <p className="mt-3 text-lg text-encre/80">
         {collecte.lieu}, {collecte.commune}
       </p>
 
+      <div className="mt-3 overflow-hidden rounded-xl border border-encre/15">
+        <CarteCollectes collectes={[collecte]} hauteurClasse="h-44" interactif={false} />
+      </div>
+      <a
+        href={lienItineraire}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-golfe underline"
+      >
+        Itinéraire vers {collecte.lieu}
+      </a>
+
       <dl className="mt-5 grid grid-cols-2 gap-4 rounded-xl bg-sable-dark/50 p-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-encre/60">Date</dt>
-          <dd className="font-semibold text-encre">{formatDateLongueFr(collecte.debut)}</dd>
-        </div>
         <div>
           <dt className="text-encre/60">Heure</dt>
           <dd className="font-semibold text-encre">{formatHeureFr(collecte.debut)}</dd>
@@ -76,20 +105,36 @@ export default async function DetailCollecte({ params }: { params: Promise<{ id:
           <dt className="text-encre/60">Organisateur·rice</dt>
           <dd className="font-semibold text-encre">{collecte.organisateur}</dd>
         </div>
-        <div>
-          <dt className="text-encre/60">Places</dt>
-          <dd className="font-semibold text-encre">
-            {terminee ? `${collecte.places} places` : `${placesRestantes} / ${collecte.places} restantes`}
-          </dd>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
+        <div className="col-span-2 sm:col-span-3">
           <dt className="text-encre/60">Matériel à apporter</dt>
           <dd className="font-semibold text-encre">{collecte.materiel || "Non précisé"}</dd>
         </div>
       </dl>
 
+      <div className="mt-4 rounded-xl border border-encre/10 bg-white p-4">
+        <div className="flex items-baseline justify-between text-sm">
+          <span className="font-semibold text-encre">Inscrit·es</span>
+          <span className="text-encre/70">
+            {nbInscrits} / {collecte.places} place{collecte.places > 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-sable-dark" role="presentation">
+          <div
+            className={`h-full rounded-full ${placesRestantes === 0 ? "bg-bouee" : "bg-algue"}`}
+            style={{ width: `${pctPlaces}%` }}
+          />
+        </div>
+      </div>
+
       <div className="mt-5">
-        <MareeInfo info={info} source={source} />
+        <MareeInfo info={info} source={source} terminee={terminee} />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-golfe/30 bg-white p-4">
+        <h3 className="font-display text-lg font-bold text-rade">Hauteur d&apos;eau du jour</h3>
+        <div className="mt-3">
+          <CourbeMaree jourISO={dateParisISO(collecte.debut)} debutISO={collecte.debut} dureeMin={collecte.duree_min} />
+        </div>
       </div>
 
       {terminee && bilan && (
@@ -123,9 +168,7 @@ export default async function DetailCollecte({ params }: { params: Promise<{ id:
       </div>
 
       <section className="mt-8">
-        <h2 className="font-display text-xl font-bold text-rade">
-          Inscrit·es ({nbInscrits}{!terminee ? ` / ${collecte.places}` : ""})
-        </h2>
+        <h2 className="font-display text-xl font-bold text-rade">Qui est inscrit·e</h2>
         <div className="mt-3">
           <ListeInscrits collecteId={id} inscritsInitiaux={inscritsPublics} />
         </div>

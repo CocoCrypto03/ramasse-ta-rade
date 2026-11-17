@@ -1,15 +1,46 @@
 import type { InfoMareeCollecte } from "@/lib/marees";
 
+function badge(statut: InfoMareeCollecte["statut"], terminee: boolean) {
+  if (statut === "calee") {
+    return {
+      classe: "bg-algue-light text-algue",
+      texte: terminee ? "Calée sur la marée basse" : "Calée sur la marée basse",
+      symbole: "●",
+    };
+  }
+  if (statut === "attention") {
+    return {
+      classe: "bg-bouee/10 text-bouee-dark",
+      texte: terminee
+        ? "La mer était déjà remontante à cette heure"
+        : "Attention : marée montante, gardez un œil sur la mer",
+      symbole: "▲",
+    };
+  }
+  // "trop_tot"
+  return {
+    classe: "bg-golfe/10 text-golfe",
+    texte: terminee
+      ? "La mer n'était pas encore tout à fait basse à cette heure"
+      : "Un peu tôt : la mer n'est pas encore basse",
+    symbole: "◐",
+  };
+}
+
 export default function MareeInfo({
   info,
   source,
+  terminee = false,
 }: {
   info: InfoMareeCollecte;
   source: { source: string; licence: string; avertissement: string; genereLe: string };
+  terminee?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-golfe/30 bg-golfe/5 p-4">
-      <h3 className="font-display text-lg font-bold text-rade">Marée du jour</h3>
+      <h3 className="font-display text-lg font-bold text-rade">
+        {terminee ? "Marée ce jour-là" : "Marée du jour"}
+      </h3>
 
       {info.statut === "inconnue" ? (
         <p className="mt-2 text-sm text-encre/80">
@@ -31,15 +62,14 @@ export default function MareeInfo({
             ))}
           </p>
 
-          {info.statut === "calee" ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-algue-light px-3 py-1.5 text-sm font-semibold text-algue">
-              ● Calée sur la marée basse
-            </p>
-          ) : (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-bouee/10 px-3 py-1.5 text-sm font-semibold text-bouee-dark">
-              ▲ Attention, marée montante à l&apos;heure de la collecte
-            </p>
-          )}
+          {(() => {
+            const b = badge(info.statut, terminee);
+            return (
+              <p className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${b.classe}`}>
+                <span aria-hidden="true">{b.symbole}</span> {b.texte}
+              </p>
+            );
+          })()}
         </>
       )}
 

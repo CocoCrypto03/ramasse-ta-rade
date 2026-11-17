@@ -6,6 +6,36 @@ import { bassesMersDuJour, dateCouverte } from "@/lib/marees";
 
 type Etape = "code" | "formulaire" | "succes";
 
+const ETAPES: { id: Etape; label: string }[] = [
+  { id: "code", label: "Code" },
+  { id: "formulaire", label: "Infos" },
+  { id: "succes", label: "Confirmation" },
+];
+
+function Etapes({ actuelle }: { actuelle: Etape }) {
+  const index = ETAPES.findIndex((e) => e.id === actuelle);
+  return (
+    <ol className="mb-6 flex items-center gap-2">
+      {ETAPES.map((e, i) => (
+        <li key={e.id} className="flex items-center gap-2">
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+              i <= index ? "bg-bouee text-white" : "bg-sable-dark text-encre/50"
+            }`}
+            aria-hidden="true"
+          >
+            {i + 1}
+          </span>
+          <span className={`text-sm font-semibold ${i <= index ? "text-encre" : "text-encre/50"}`}>
+            {e.label}
+          </span>
+          {i < ETAPES.length - 1 && <span className="mx-1 h-px w-6 bg-encre/20" aria-hidden="true" />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export default function FormulaireCreation() {
   const [etape, setEtape] = useState<Etape>("code");
   const [code, setCode] = useState("");
@@ -90,46 +120,54 @@ export default function FormulaireCreation() {
 
   if (etape === "code") {
     return (
-      <form onSubmit={validerCode} className="max-w-sm">
-        <label htmlFor="code" className="text-sm font-semibold text-encre">
-          Code ambassadeur
-        </label>
-        <input
-          id="code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          className="mt-1 h-12 w-full rounded-lg border border-encre/20 bg-white px-3 text-base"
-          placeholder="••••••••"
-        />
-        {erreurCode && <p className="mt-2 text-sm font-semibold text-bouee-dark">{erreurCode}</p>}
-        <button
-          type="submit"
-          className="mt-4 inline-flex min-h-12 items-center justify-center rounded-full bg-rade px-6 font-bold text-sable"
-        >
-          Continuer
-        </button>
-        <p className="mt-3 text-xs text-encre/60">
-          Réservé aux ambassadeur·rices (ex. Kelig). Demandez le code à l&apos;équipe si vous n&apos;en avez
-          pas.
-        </p>
-      </form>
+      <div>
+        <Etapes actuelle={etape} />
+        <form onSubmit={validerCode} className="max-w-sm">
+          <label htmlFor="code" className="text-sm font-semibold text-encre">
+            Code ambassadeur
+          </label>
+          <input
+            id="code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="mt-1 h-12 w-full rounded-lg border border-encre/20 bg-white px-3 text-base"
+            placeholder="••••••••"
+          />
+          {erreurCode && <p className="mt-2 text-sm font-semibold text-bouee-dark">{erreurCode}</p>}
+          <button
+            type="submit"
+            className="mt-4 inline-flex min-h-12 items-center justify-center rounded-full bg-rade px-6 font-bold text-sable"
+          >
+            Continuer
+          </button>
+          <p className="mt-3 text-xs text-encre/60">
+            Réservé aux ambassadeur·rices (ex. Kelig). Demandez le code à l&apos;équipe si vous n&apos;en avez
+            pas.
+          </p>
+        </form>
+      </div>
     );
   }
 
   if (etape === "succes" && idCree) {
     return (
-      <div className="rounded-xl border-2 border-algue bg-algue-light p-5">
-        <p className="font-display text-lg font-bold text-algue">Collecte créée !</p>
-        <p className="mt-1 text-sm text-encre/80">Elle apparaît déjà sur la carte.</p>
-        <a href={`/collecte/${idCree}`} className="mt-3 inline-block font-semibold text-golfe underline">
-          Voir la page de la collecte
-        </a>
+      <div>
+        <Etapes actuelle={etape} />
+        <div className="rounded-xl border-2 border-algue bg-algue-light p-5">
+          <p className="font-display text-lg font-bold text-algue">Collecte créée !</p>
+          <p className="mt-1 text-sm text-encre/80">Elle apparaît déjà sur la carte.</p>
+          <a href={`/collecte/${idCree}`} className="mt-3 inline-block font-semibold text-golfe underline">
+            Voir la page de la collecte
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={soumettreFormulaire} className="flex flex-col gap-5">
+    <div>
+      <Etapes actuelle={etape} />
+      <form onSubmit={soumettreFormulaire} className="flex flex-col gap-5">
       <div>
         <p className="text-sm font-semibold text-encre">Emplacement — touchez la carte pour le choisir</p>
         <div className="mt-2 overflow-hidden rounded-xl border border-encre/15">
@@ -223,7 +261,8 @@ export default function FormulaireCreation() {
       >
         {envoi ? "Création…" : "Créer la collecte"}
       </button>
-    </form>
+      </form>
+    </div>
   );
 }
 

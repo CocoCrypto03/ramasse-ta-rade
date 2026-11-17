@@ -90,7 +90,7 @@ export const COLLECTES_DEMO: Collecte[] = [
     commune: "Le Relecq-Kerhuon",
     lat: 48.3960965,
     lng: -4.3816047,
-    debut: "2026-10-10T07:00:00.000Z", // 10/10/2026 09h00 (CEST)
+    debut: "2026-10-10T07:30:00.000Z", // 10/10/2026 09h30 (CEST) — basse mer à 11h02
     duree_min: 120,
     places: 20,
     organisateur: "Kelig Ar Floc'h",

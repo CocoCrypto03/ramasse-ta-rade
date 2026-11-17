@@ -2,6 +2,31 @@
 
 import { useState, type FormEvent } from "react";
 
+function EtapesBilan({ succes }: { succes: boolean }) {
+  const etapes = ["Saisie du bilan", "Confirmation"];
+  return (
+    <ol className="mb-6 flex items-center gap-2">
+      {etapes.map((label, i) => {
+        const actif = succes ? true : i === 0;
+        return (
+          <li key={label} className="flex items-center gap-2">
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                actif ? "bg-bouee text-white" : "bg-sable-dark text-encre/50"
+              }`}
+              aria-hidden="true"
+            >
+              {i + 1}
+            </span>
+            <span className={`text-sm font-semibold ${actif ? "text-encre" : "text-encre/50"}`}>{label}</span>
+            {i < etapes.length - 1 && <span className="mx-1 h-px w-6 bg-encre/20" aria-hidden="true" />}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default function FormulaireBilan({ collecteId }: { collecteId: string }) {
   const [code, setCode] = useState("");
   const [kg, setKg] = useState("");
@@ -37,20 +62,25 @@ export default function FormulaireBilan({ collecteId }: { collecteId: string }) 
 
   if (succes) {
     return (
-      <div className="rounded-xl border-2 border-algue bg-algue-light p-5">
-        <p className="font-display text-lg font-bold text-algue">Bilan enregistré !</p>
-        <p className="mt-1 text-sm text-encre/80">
-          La collecte passe au statut « terminée » et le compteur d&apos;impact est mis à jour.
-        </p>
-        <a href={`/collecte/${collecteId}`} className="mt-3 inline-block font-semibold text-golfe underline">
-          Voir la collecte
-        </a>
+      <div>
+        <EtapesBilan succes />
+        <div className="rounded-xl border-2 border-algue bg-algue-light p-5">
+          <p className="font-display text-lg font-bold text-algue">Bilan enregistré !</p>
+          <p className="mt-1 text-sm text-encre/80">
+            La collecte passe au statut « terminée » et le compteur d&apos;impact est mis à jour.
+          </p>
+          <a href={`/collecte/${collecteId}`} className="mt-3 inline-block font-semibold text-golfe underline">
+            Voir la collecte
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={soumettre} className="flex flex-col gap-4 max-w-sm">
+    <div>
+      <EtapesBilan succes={false} />
+      <form onSubmit={soumettre} className="flex flex-col gap-4 max-w-sm">
       <label className="block">
         <span className="text-sm font-semibold text-encre">Code ambassadeur</span>
         <input value={code} onChange={(e) => setCode(e.target.value)} required className="champ mt-1" placeholder="••••••••" />
@@ -81,6 +111,7 @@ export default function FormulaireBilan({ collecteId }: { collecteId: string }) 
       >
         {envoi ? "Envoi…" : "Enregistrer le bilan"}
       </button>
-    </form>
+      </form>
+    </div>
   );
 }

@@ -17,11 +17,13 @@ export default function CarteCollectes({
   pointSelectionne,
   onClicCarte,
   hauteurClasse,
+  interactif,
 }: {
   collectes: Collecte[];
   pointSelectionne?: { lat: number; lng: number } | null;
   onClicCarte?: (lat: number, lng: number) => void;
   hauteurClasse?: string;
+  interactif?: boolean;
 }) {
   return (
     <CarteCollectesInterne
@@ -29,6 +31,7 @@ export default function CarteCollectes({
       pointSelectionne={pointSelectionne}
       onClicCarte={onClicCarte}
       hauteurClasse={hauteurClasse}
+      interactif={interactif}
     />
   );
 }
