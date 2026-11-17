@@ -54,7 +54,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="bg-rade text-sable/80">
           <div className="mx-auto max-w-5xl px-5 py-6 text-sm">
             <p>Les Goélands — Jean, Cheun, Gaspard, Corentin · Projet M2 Gestion de projet</p>
-            <p className="mt-1 text-sable/60">Données carte © OpenStreetMap</p>
+            <p className="mt-1 text-sable/60">
+              Données carte © OpenStreetMap ·{" "}
+              <Link href="/confidentialite" className="underline hover:text-sable">
+                Vos données personnelles
+              </Link>
+            </p>
           </div>
         </footer>
       </body>

@@ -115,7 +115,7 @@ export const COLLECTES_DEMO: Collecte[] = [
   },
 ];
 
-export const INSCRIPTIONS_DEMO: Inscription[] = [
+export const INSCRIPTIONS_DEMO: Omit<Inscription, "consentement_at">[] = [
   // c1 — Moulin Blanc (20 places, 6 inscrits)
   { id: "i1", collecte_id: "c1", prenom: "Kaïna", email: "kaina.etudiante@example.fr", created_at: "2026-09-20T08:00:00.000Z" },
   { id: "i2", collecte_id: "c1", prenom: "Loïc", email: "loic.m@example.fr", created_at: "2026-09-20T09:00:00.000Z" },

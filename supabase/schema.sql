@@ -41,6 +41,10 @@ create table if not exists inscriptions (
   prenom text not null,
   email text not null,
   created_at timestamptz not null default now(),
+  -- RGPD : date du consentement recueilli à l'inscription, et empreinte
+  -- SHA-256 du jeton de désinscription (le jeton lui-même n'est jamais stocké).
+  consentement_at timestamptz,
+  jeton_hash text unique,
   unique (collecte_id, email)
 );
 

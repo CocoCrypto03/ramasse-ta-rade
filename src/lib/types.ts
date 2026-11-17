@@ -22,6 +22,8 @@ export interface Inscription {
   prenom: string;
   email: string;
   created_at: string;
+  /** Date du consentement RGPD (null pour les inscriptions antérieures à son recueil). */
+  consentement_at: string | null;
 }
 
 export interface InscriptionPublique {
