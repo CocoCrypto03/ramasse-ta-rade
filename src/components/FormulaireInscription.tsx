@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export default function FormulaireInscription({
   collecteId,
@@ -15,6 +16,7 @@ export default function FormulaireInscription({
 }) {
   const [prenom, setPrenom] = useState("");
   const [email, setEmail] = useState("");
+  const router = useRouter();
   const [etat, setEtat] = useState<"repos" | "envoi" | "succes" | "erreur">("repos");
   const [messageErreur, setMessageErreur] = useState("");
 
@@ -40,6 +42,7 @@ export default function FormulaireInscription({
       }
 
       setEtat("succes");
+      router.refresh();
       onInscrit?.(prenom);
     } catch {
       setEtat("erreur");
