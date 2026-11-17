@@ -1,5 +1,4 @@
 import type { InfoMareeCollecte } from "@/lib/marees";
-import { formatHeureFr } from "@/lib/temps";
 
 export default function MareeInfo({
   info,
@@ -26,7 +25,7 @@ export default function MareeInfo({
             Basse{info.bassesMers.length > 1 ? "s" : ""} mer{info.bassesMers.length > 1 ? "s" : ""} du jour :{" "}
             {info.bassesMers.map((bm, i) => (
               <span key={bm.heure} className="font-semibold text-encre">
-                {formatHeureFr(bm.heure + ":00Z")}
+                {bm.heure.slice(11, 16).replace(":", "h")}
                 {i < info.bassesMers.length - 1 ? ", " : ""}
               </span>
             ))}
