@@ -7,6 +7,7 @@
 // terminé, code ambassadeur) est centralisée ici pour rester cohérente
 // entre les deux modes.
 
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,6 +22,7 @@ import type {
   NouvelleCollecte,
 } from "./types";
 import { COLLECTES_DEMO, INSCRIPTIONS_DEMO, BILANS_DEMO } from "./donnees-demo";
+import { limiteConservation } from "./rgpd";
 
 export class DbError extends Error {
   code: "introuvable" | "complet" | "terminee" | "doublon_email" | "deja_un_bilan";
@@ -57,17 +59,43 @@ function client(): SupabaseClient {
 // fichier n'est jamais utilisé.
 interface Memoire {
   collectes: Collecte[];
-  inscriptions: Inscription[];
+  inscriptions: InscriptionStockee[];
   bilans: Bilan[];
   prochainId: number;
 }
 
-const CHEMIN_STOCKAGE_DEMO = path.join(process.env.VERCEL ? os.tmpdir() : process.cwd(), ".demo-store.json");
+// Ligne telle que stockée : l'empreinte du jeton de désinscription ne doit
+// jamais sortir de ce module.
+type InscriptionStockee = Inscription & { jeton_hash?: string | null };
+
+// Colonnes renvoyées pour une inscription (jamais jeton_hash).
+const COLONNES_INSCRIPTION = "id, collecte_id, prenom, email, created_at, consentement_at";
+
+function sansJeton({ id, collecte_id, prenom, email, created_at, consentement_at }: InscriptionStockee): Inscription {
+  return { id, collecte_id, prenom, email, created_at, consentement_at: consentement_at ?? null };
+}
+
+// Le jeton de désinscription n'est montré qu'une fois à la personne ; on
+// n'en garde que l'empreinte SHA-256, comme pour un mot de passe à usage
+// unique (une fuite de la base ne permet pas de désinscrire les gens).
+function nouveauJeton(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+function hacherJeton(jeton: string): string {
+  return createHash("sha256").update(jeton).digest("hex");
+}
+
+// DEMO_STORE_DIR : dossier choisi par l'image Docker (volume persistant).
+const CHEMIN_STOCKAGE_DEMO = path.join(
+  process.env.DEMO_STORE_DIR ?? (process.env.VERCEL ? os.tmpdir() : process.cwd()),
+  ".demo-store.json",
+);
 
 function memoireInitiale(): Memoire {
   return {
     collectes: COLLECTES_DEMO.map((c) => ({ ...c })),
-    inscriptions: INSCRIPTIONS_DEMO.map((i) => ({ ...i })),
+    inscriptions: INSCRIPTIONS_DEMO.map((i) => ({ ...i, consentement_at: i.created_at, jeton_hash: null })),
     bilans: BILANS_DEMO.map((b) => ({ ...b })),
     prochainId: 1000,
   };
@@ -179,7 +207,7 @@ export async function listerInscriptionsCompletes(collecteId: string): Promise<I
   if (UTILISE_SUPABASE) {
     const { data, error } = await client()
       .from("inscriptions")
-      .select("*")
+      .select(COLONNES_INSCRIPTION)
       .eq("collecte_id", collecteId)
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -187,13 +215,18 @@ export async function listerInscriptionsCompletes(collecteId: string): Promise<I
   }
   return memoire().inscriptions
     .filter((i) => i.collecte_id === collecteId)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map(sansJeton);
 }
 
+/**
+ * Crée l'inscription (l'appelant a vérifié le consentement) et renvoie le
+ * jeton de désinscription en clair — c'est la seule fois qu'il existe.
+ */
 export async function creerInscription(
   collecteId: string,
   { prenom, email }: { prenom: string; email: string },
-): Promise<Inscription> {
+): Promise<{ inscription: Inscription; jeton: string }> {
   const collecte = await obtenirCollecte(collecteId);
   if (!collecte) throw new DbError("introuvable", "Collecte introuvable.");
   if (collecte.statut === "terminee") {
@@ -206,11 +239,20 @@ export async function creerInscription(
     throw new DbError("complet", "Cette collecte est complète.");
   }
 
+  const jeton = nouveauJeton();
+  const consentementAt = new Date().toISOString();
+
   if (UTILISE_SUPABASE) {
     const { data, error } = await client()
       .from("inscriptions")
-      .insert({ collecte_id: collecteId, prenom: prenom.trim(), email: emailNormalise })
-      .select("*")
+      .insert({
+        collecte_id: collecteId,
+        prenom: prenom.trim(),
+        email: emailNormalise,
+        consentement_at: consentementAt,
+        jeton_hash: hacherJeton(jeton),
+      })
+      .select(COLONNES_INSCRIPTION)
       .single();
     if (error) {
       // Violation de la contrainte unique(collecte_id, email)
@@ -219,7 +261,7 @@ export async function creerInscription(
       }
       throw error;
     }
-    return data as Inscription;
+    return { inscription: data as Inscription, jeton };
   }
 
   const m = memoire();
@@ -230,16 +272,77 @@ export async function creerInscription(
     throw new DbError("doublon_email", "Cet e-mail est déjà inscrit à cette collecte.");
   }
 
-  const inscription: Inscription = {
+  const inscription: InscriptionStockee = {
     id: nouvelId(m, "i"),
     collecte_id: collecteId,
     prenom: prenom.trim(),
     email: emailNormalise,
-    created_at: new Date().toISOString(),
+    created_at: consentementAt,
+    consentement_at: consentementAt,
+    jeton_hash: hacherJeton(jeton),
   };
   m.inscriptions.push(inscription);
   sauvegarder(m);
-  return inscription;
+  return { inscription: sansJeton(inscription), jeton };
+}
+
+/**
+ * Droit à l'effacement : supprime l'inscription correspondant au jeton.
+ * Renvoie l'id de la collecte concernée, ou null si le jeton est inconnu
+ * (déjà utilisé, inscription purgée, ou jeton invalide).
+ */
+export async function supprimerInscriptionParJeton(jeton: string): Promise<string | null> {
+  const hash = hacherJeton(jeton);
+
+  if (UTILISE_SUPABASE) {
+    const { data, error } = await client()
+      .from("inscriptions")
+      .delete()
+      .eq("jeton_hash", hash)
+      .select("collecte_id")
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { collecte_id: string } | null)?.collecte_id ?? null;
+  }
+
+  const m = memoire();
+  const index = m.inscriptions.findIndex((i) => i.jeton_hash === hash);
+  if (index === -1) return null;
+  const [supprimee] = m.inscriptions.splice(index, 1);
+  sauvegarder(m);
+  return supprimee.collecte_id;
+}
+
+/**
+ * Limitation de la conservation : supprime toutes les inscriptions (prénoms
+ * et e-mails) des collectes ayant eu lieu il y a plus de
+ * DUREE_CONSERVATION_JOURS jours. Le bilan (nombre de participants) est
+ * conservé, il ne contient aucune donnée personnelle. Renvoie le nombre
+ * d'inscriptions supprimées.
+ */
+export async function purgerInscriptionsPerimees(maintenant: Date = new Date()): Promise<number> {
+  const limite = limiteConservation(maintenant).toISOString();
+
+  if (UTILISE_SUPABASE) {
+    const { data: anciennes, error: e1 } = await client().from("collectes").select("id").lt("debut", limite);
+    if (e1) throw e1;
+    const ids = (anciennes ?? []).map((c: { id: string }) => c.id);
+    if (ids.length === 0) return 0;
+    const { count, error: e2 } = await client()
+      .from("inscriptions")
+      .delete({ count: "exact" })
+      .in("collecte_id", ids);
+    if (e2) throw e2;
+    return count ?? 0;
+  }
+
+  const m = memoire();
+  const anciennes = new Set(m.collectes.filter((c) => c.debut < limite).map((c) => c.id));
+  const avant = m.inscriptions.length;
+  m.inscriptions = m.inscriptions.filter((i) => !anciennes.has(i.collecte_id));
+  const supprimees = avant - m.inscriptions.length;
+  if (supprimees > 0) sauvegarder(m);
+  return supprimees;
 }
 
 // ---------------------------------------------------------------------------

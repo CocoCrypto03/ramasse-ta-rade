@@ -1,0 +1,29 @@
+# Environnement de test local, en mode mémoire de démonstration (sans
+# Supabase). Les valeurs ci-dessous ne valent QUE pour ce test local.
+#
+#   docker compose up --build      démarre sur http://localhost:3000
+#   docker compose down -v         arrête et repart des données de démo
+#
+# Pour tester contre Supabase, mettre SUPABASE_URL et
+# SUPABASE_SERVICE_ROLE_KEY dans .env.local (voir .env.example). Les trois
+# variables ci-dessous se changent via le shell ou un fichier .env, ex. :
+#   AMBASSADEUR_CODE=autre-code docker compose up
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      AMBASSADEUR_CODE: ${AMBASSADEUR_CODE:-GOELAND29}
+      CRON_SECRET: ${CRON_SECRET:-secret-local}
+      CONTACT_RGPD: ${CONTACT_RGPD:-contact@exemple.fr}
+    env_file:
+      - path: .env.local
+        required: false
+    volumes:
+      # Stockage de démonstration conservé entre deux redémarrages.
+      - stockage-demo:/app/stockage
+
+volumes:
+  stockage-demo:
