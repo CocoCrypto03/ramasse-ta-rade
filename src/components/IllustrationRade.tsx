@@ -44,11 +44,15 @@ export default function IllustrationRade({ className = "" }: { className?: strin
 
         {/* mer */}
         <rect y="186" width="400" height="80" fill="url(#mer)" />
-        <g className="derive-lente" transform="translate(0 204)">
+        <g transform="translate(0 204)">
+          <g className="derive-lente">
           <path d={VAGUE} fill="none" stroke="#f4edd9" strokeWidth="2" opacity="0.45" />
+          </g>
         </g>
-        <g className="derive-rapide" transform="translate(0 222)">
+        <g transform="translate(0 222)">
+          <g className="derive-rapide">
           <path d={VAGUE} fill="none" stroke="#f4edd9" strokeWidth="2" opacity="0.3" />
+          </g>
         </g>
 
         {/* estran découvert, puis plage */}
