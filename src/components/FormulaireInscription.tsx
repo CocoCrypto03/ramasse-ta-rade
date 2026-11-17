@@ -66,6 +66,12 @@ export default function FormulaireInscription({
           Vous êtes inscrit·e. Pensez à vérifier l&apos;horaire de marée avant de partir, et à venir avec vos
           gants.
         </p>
+        <a
+          href={`/api/collectes/${collecteId}/agenda`}
+          className="mt-3 inline-flex min-h-11 items-center rounded-full bg-algue px-5 text-sm font-bold text-white"
+        >
+          Ajouter à mon agenda
+        </a>
       </div>
     );
   }
