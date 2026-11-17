@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -16,6 +17,13 @@ import CarteCollectes from "@/components/CarteCollectes";
 import CourbeMaree from "@/components/CourbeMaree";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const collecte = await obtenirCollecte((await params).id);
+  if (!collecte) return {};
+  const description = `${collecte.lieu}, ${collecte.commune} — ${formatDateLongueFr(collecte.debut)} à ${formatHeureFr(collecte.debut)}. Inscription en 30 secondes, sans compte.`;
+  return { title: `${collecte.titre} · Ramasse ta rade`, description, openGraph: { title: collecte.titre, description } };
+}
 
 function formatDuree(min: number): string {
   if (min < 60) return `${min} min`;
@@ -160,6 +168,14 @@ export default async function DetailCollecte({ params }: { params: Promise<{ id:
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <BoutonWhatsapp titre={collecte.titre} lieu={`${collecte.lieu}, ${collecte.commune}`} dateTexte={formatDateLongueFr(collecte.debut)} />
+        {!terminee && (
+          <a
+            href={`/api/collectes/${id}/agenda`}
+            className="inline-flex min-h-12 items-center rounded-full border-2 border-golfe px-5 font-semibold text-golfe transition-colors hover:bg-golfe/10"
+          >
+            Ajouter à mon agenda
+          </a>
+        )}
         {!terminee && (
           <Link href={`/collecte/${id}/bilan`} className="text-sm font-semibold text-encre/60 underline">
             Je suis ambassadeur·rice, saisir le bilan
